@@ -85,6 +85,8 @@ Then, your output should include:
 2. Three specific initiatives to address the identified focus area
 3. Two actionable steps for each initiative
 
+{additional_context_text}
+
 Use the following context to inform your answer:
 {context}
 
@@ -93,9 +95,20 @@ Question: {question}
 Answer:
 """
 
-PROMPT = PromptTemplate(
-    template=prompt_template, input_variables=["context", "question"]
-)
+# Create the RetrievalQA chain with the custom prompt
+def create_qa_chain(retriever, llm):
+    # This is a simpler approach than using a complex template with conditionals
+    return RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=retriever,
+        chain_type_kwargs={
+            "prompt": PromptTemplate(
+                template=prompt_template,
+                input_variables=["context", "question", "additional_context_text"]
+            )
+        }
+    )
 
 # Create the RetrievalQA chain with the custom prompt
 qa_chain = RetrievalQA.from_chain_type(
@@ -197,30 +210,29 @@ def generate_insights(data, selected_metrics, selected_dimensions, additional_co
     data_str = data.to_string()
     
     # Create a question based on the selected metrics and dimensions
-    if additional_context:
-        question = f"""
-        Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
-        
-        Here's the data:
-        {data_str}
-        
-        Additional context provided by user:
+    question = f"""
+    Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
+    
+    Here's the data:
+    {data_str}
+    
+    What patterns or trends do you observe and what strategies would you recommend?
+    """
+    
+    # Prepare additional context text for the prompt
+    if additional_context and additional_context.strip():
+        additional_context_text = f"""
+        Use the following additional context about the healthcare organization to tailor your recommendations:
         {additional_context}
-        
-        What patterns or trends do you observe and what strategies would you recommend?
         """
     else:
-        question = f"""
-        Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
-        
-        Here's the data:
-        {data_str}
-        
-        What patterns or trends do you observe and what strategies would you recommend?
-        """
+        additional_context_text = ""
     
     # Get insights using the QA chain
-    response = qa_chain.run(question)
+    response = qa_chain.run(
+        question=question,
+        additional_context_text=additional_context_text
+    )
     return response
 
 # Streamlit application
@@ -300,35 +312,17 @@ if selected_metrics and apply_button:
     st.subheader("Additional Context (Optional)")
     additional_context = st.text_area(
         "Add information about your hospital system, insurance company, or specific programs to better tailor recommendations:",
-        height=100
+        height=100,
+        key="context_input"
     )
     
-    with st.spinner("Generating insights..."):
-        # Include additional context in the prompt if provided
-        if additional_context:
-            custom_question = f"""
-            Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
-            
-            Here's the data:
-            {aggregated_data.to_string()}
-            
-            Additional context provided by user:
-            {additional_context}
-            
-            What patterns or trends do you observe and what strategies would you recommend?
-            """
-        else:
-            custom_question = f"""
-            Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
-            
-            Here's the data:
-            {aggregated_data.to_string()}
-            
-            What patterns or trends do you observe and what strategies would you recommend?
-            """
-            
-        insights = generate_insights(aggregated_data, selected_metrics, selected_dimensions, additional_context)
-    st.write(insights)
+    # Add a button to generate insights with the additional context
+    generate_button = st.button("Generate Tailored Playbook")
+    
+    if generate_button:
+        with st.spinner("Generating insights..."):
+            insights = generate_insights(aggregated_data, selected_metrics, selected_dimensions, additional_context)
+        st.write(insights)
 elif not apply_button:
     st.info("Select metrics and conditions, then click 'Apply Selections'.")
 else:
