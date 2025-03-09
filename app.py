@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import anthropic
 from langchain_anthropic import ChatAnthropicMessages
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 from langchain.embeddings import SentenceTransformerEmbeddings
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
@@ -178,35 +178,17 @@ def aggregate_data(data, dimensions, metrics):
         # Include count of patients
         agg_dict['PatientID'] = 'count'
         
-        # Add sums for chronic conditions if they're not already in dimensions
-        chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
-        for condition in chronic_conditions:
-            if condition in data.columns and condition not in dimensions:
-                agg_dict[condition] = 'sum'
-        
         # Aggregate the data
         result = grouped.agg(agg_dict).reset_index()
         
         # Rename the count column
         result = result.rename(columns={'PatientID': 'PatientCount'})
         
-        # For boolean chronic conditions in results, convert to patient counts
-        for col in result.columns:
-            if col in chronic_conditions and col not in dimensions:
-                result = result.rename(columns={col: f'{col}Count'})
-        
         return result
     else:
         # If no dimensions selected, just sum up the metrics
         result = pd.DataFrame({metric: [data[metric].sum()] for metric in metrics})
         result['PatientCount'] = len(data)
-        
-        # Add sums for chronic conditions
-        chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
-        for condition in chronic_conditions:
-            if condition in data.columns:
-                result[f'{condition}Count'] = data[condition].sum()
-        
         return result
 
 # Function to generate insights based on table data
