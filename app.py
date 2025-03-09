@@ -72,12 +72,13 @@ docsearch = FAISS.from_texts(texts, embeddings)
 # Create a retriever
 retriever = docsearch.as_retriever()
 
-# Define the custom prompt template that includes additional context
+# Define the custom prompt template
 prompt_template = """
 You are an expert healthcare analytics assistant helping customers make data-driven decisions.
 
 Based on the selected metrics and dimensions in the table, analyze the data patterns and trends.
-{additional_context}
+
+{context_info}
 
 First, provide a brief summary of what the data is showing.
 
@@ -97,7 +98,7 @@ Answer:
 # Create the prompt with the template
 PROMPT = PromptTemplate(
     template=prompt_template,
-    input_variables=["context", "question", "additional_context"]
+    input_variables=["context", "question", "context_info"]
 )
 
 # Initialize the QA chain with the custom prompt
@@ -219,16 +220,16 @@ def generate_insights(data, selected_metrics, selected_dimensions, additional_co
     """
     
     # Format the additional context if provided
-    additional_context_formatted = ""
+    context_info = ""
     if additional_context and additional_context.strip():
-        additional_context_formatted = f"""
-        Use the following additional context about the healthcare organization to tailor your recommendations:
+        context_info = f"""
+        Additional context about the healthcare organization to consider:
         {additional_context}
         """
     
     # Use the chain
     try:
-        response = qa_chain({"query": question, "additional_context": additional_context_formatted})
+        response = qa_chain({"query": question, "context_info": context_info})
         return response["result"]
     except Exception as e:
         st.error(f"Error generating insights: {str(e)}")
