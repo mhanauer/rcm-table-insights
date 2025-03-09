@@ -127,6 +127,11 @@ def generate_fake_healthcare_data(num_samples=100):
         'EmployerGroup': np.random.choice(employer_groups, num_samples)
     })
     
+    # Pre-calculate chronic condition counts
+    data['DiabetesCount'] = data['Diabetes'].astype(int)
+    data['COPDCount'] = data['COPD'].astype(int)
+    data['HypertensionCount'] = data['Hypertension'].astype(int)
+    
     # Generate metric values with some correlation to conditions
     # Base values
     data['TotalMedicalPaid'] = np.random.normal(1000, 500, num_samples)
@@ -236,14 +241,14 @@ available_metrics = [
     'TotalPharmacyPaid', 
     'TotalAllowedAmount', 
     'ERVisits', 
-    'HospitalAdmissions'
+    'HospitalAdmissions',
+    'DiabetesCount',
+    'COPDCount',
+    'HypertensionCount'
 ]
 
 available_dimensions = [
-    'IncurrDate', 
-    'Diabetes', 
-    'COPD', 
-    'Hypertension', 
+    'IncurrDate',
     'AgeGroup', 
     'Gender', 
     'EmployerGroup'
@@ -252,8 +257,8 @@ available_dimensions = [
 # Sidebar for selections
 st.sidebar.header("Select Data to Analyze")
 
-# Select metrics (default to medical paid and ER visits)
-default_metrics = ['TotalMedicalPaid', 'ERVisits']
+# Select metrics (default to medical paid, ER visits, and diabetes count)
+default_metrics = ['TotalMedicalPaid', 'ERVisits', 'DiabetesCount']
 selected_metrics = st.sidebar.multiselect(
     "Select Metrics",
     available_metrics,
@@ -266,15 +271,6 @@ selected_dimensions = st.sidebar.multiselect(
     "Select Dimensions",
     available_dimensions,
     default=default_dimensions
-)
-
-# Select chronic conditions to analyze (as metrics, not dimensions)
-st.sidebar.subheader("Select Chronic Conditions")
-chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
-selected_conditions = st.sidebar.multiselect(
-    "Analyze Counts for These Conditions",
-    chronic_conditions,
-    default=['Diabetes']
 )
 
 # Button to apply selections
@@ -293,20 +289,7 @@ if selected_metrics and apply_button:
         data['Month'] = data['IncurrDate'].dt.to_period('M')
         selected_dimensions[selected_dimensions.index('IncurrDate')] = 'Month'
     
-    # Convert chronic condition flags to count columns if they're selected as dimensions
-    chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
-    for condition in chronic_conditions:
-        if condition in selected_dimensions:
-            # Create a count column for this condition and use it instead of the boolean flag
-            count_col = f'{condition}Count'
-            data[count_col] = data[condition].astype(int)
-            selected_dimensions[selected_dimensions.index(condition)] = count_col
-    
-    # Add chronic condition counts as metrics
-    for condition in selected_conditions:
-        data[f'{condition}Count'] = data[condition].astype(int)
-        if f'{condition}Count' not in selected_metrics:
-            selected_metrics.append(f'{condition}Count')
+    # No need to convert chronic conditions as they're now pre-calculated as count metrics
     
     # Aggregate the data
     aggregated_data = aggregate_data(data, selected_dimensions, selected_metrics)
@@ -315,14 +298,19 @@ if selected_metrics and apply_button:
     st.header("Metrics by Dimensions")
     st.write(aggregated_data)
     
-    # Display total patients by condition
-    if selected_conditions:
+    # Display chronic condition summary if any condition counts are selected
+    chronic_metrics = ['DiabetesCount', 'COPDCount', 'HypertensionCount']
+    selected_condition_metrics = [m for m in selected_metrics if m in chronic_metrics]
+    
+    if selected_condition_metrics:
         st.subheader("Chronic Condition Summary")
         total_patients = data['PatientID'].nunique()
-        for condition in selected_conditions:
-            patients_with_condition = data[condition].sum()
+        
+        for condition_metric in selected_condition_metrics:
+            condition_name = condition_metric.replace('Count', '')
+            patients_with_condition = data[condition_name].sum()
             percentage = (patients_with_condition / total_patients) * 100
-            st.write(f"Total patients with {condition}: {patients_with_condition} ({percentage:.1f}%)")
+            st.write(f"Total patients with {condition_name}: {patients_with_condition} ({percentage:.1f}%)")
     
     # Generate insights
     st.header("Automated Playbook")
