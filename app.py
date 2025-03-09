@@ -119,10 +119,10 @@ qa_chain = RetrievalQA.from_chain_type(
 )
 
 # Function to generate fake healthcare data
-def generate_fake_healthcare_data(num_samples=100):
-    # Define date range for the past 12 months
+def generate_fake_healthcare_data(num_samples=1000):
+    # Define date range for the past 24 months (2 years)
     end_date = pd.Timestamp.today()
-    start_date = end_date - pd.DateOffset(months=12)
+    start_date = end_date - pd.DateOffset(months=24)
     incurr_dates = pd.date_range(start=start_date, end=end_date, periods=num_samples)
     
     # Define employer groups
