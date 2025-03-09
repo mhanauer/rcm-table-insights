@@ -192,19 +192,32 @@ def aggregate_data(data, dimensions, metrics):
         return result
 
 # Function to generate insights based on table data
-def generate_insights(data, selected_metrics, selected_dimensions):
+def generate_insights(data, selected_metrics, selected_dimensions, additional_context=""):
     # Convert the dataframe to a string representation for the prompt
     data_str = data.to_string()
     
     # Create a question based on the selected metrics and dimensions
-    question = f"""
-    Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
-    
-    Here's the data:
-    {data_str}
-    
-    What patterns or trends do you observe and what strategies would you recommend?
-    """
+    if additional_context:
+        question = f"""
+        Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
+        
+        Here's the data:
+        {data_str}
+        
+        Additional context provided by user:
+        {additional_context}
+        
+        What patterns or trends do you observe and what strategies would you recommend?
+        """
+    else:
+        question = f"""
+        Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
+        
+        Here's the data:
+        {data_str}
+        
+        What patterns or trends do you observe and what strategies would you recommend?
+        """
     
     # Get insights using the QA chain
     response = qa_chain.run(question)
@@ -280,24 +293,41 @@ if selected_metrics and apply_button:
     st.header("Metrics by Dimensions")
     st.write(aggregated_data)
     
-    # Display chronic condition summary if any condition counts are selected
-    chronic_metrics = ['DiabetesCount', 'COPDCount', 'HypertensionCount']
-    selected_condition_metrics = [m for m in selected_metrics if m in chronic_metrics]
-    
-    if selected_condition_metrics:
-        st.subheader("Chronic Condition Summary")
-        total_patients = data['PatientID'].nunique()
-        
-        for condition_metric in selected_condition_metrics:
-            condition_name = condition_metric.replace('Count', '')
-            patients_with_condition = data[condition_name].sum()
-            percentage = (patients_with_condition / total_patients) * 100
-            st.write(f"Total patients with {condition_name}: {patients_with_condition} ({percentage:.1f}%)")
-    
     # Generate insights
     st.header("Automated Playbook")
+    
+    # Additional context input for customizing the prompt
+    st.subheader("Additional Context (Optional)")
+    additional_context = st.text_area(
+        "Add information about your hospital system, insurance company, or specific programs to better tailor recommendations:",
+        height=100
+    )
+    
     with st.spinner("Generating insights..."):
-        insights = generate_insights(aggregated_data, selected_metrics, selected_dimensions)
+        # Include additional context in the prompt if provided
+        if additional_context:
+            custom_question = f"""
+            Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
+            
+            Here's the data:
+            {aggregated_data.to_string()}
+            
+            Additional context provided by user:
+            {additional_context}
+            
+            What patterns or trends do you observe and what strategies would you recommend?
+            """
+        else:
+            custom_question = f"""
+            Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
+            
+            Here's the data:
+            {aggregated_data.to_string()}
+            
+            What patterns or trends do you observe and what strategies would you recommend?
+            """
+            
+        insights = generate_insights(aggregated_data, selected_metrics, selected_dimensions, additional_context)
     st.write(insights)
 elif not apply_button:
     st.info("Select metrics and conditions, then click 'Apply Selections'.")
