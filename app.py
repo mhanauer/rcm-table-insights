@@ -204,14 +204,32 @@ def aggregate_data(data, dimensions, metrics):
         result['PatientCount'] = len(data)
         return result
 
-# Function to generate insights based on table data
+# Function to generate response with Claude directly
 def generate_insights(data, selected_metrics, selected_dimensions, additional_context=""):
-    # Convert the dataframe to a string representation for the prompt
+    # Convert the dataframe to a string representation
     data_str = data.to_string()
     
-    # Create a question based on the selected metrics and dimensions
-    question = f"""
-    Analyze the healthcare data table showing {', '.join(selected_metrics)} by {', '.join(selected_dimensions)}.
+    # Format the additional context if provided
+    context_section = ""
+    if additional_context and additional_context.strip():
+        context_section = f"""
+        Additional context about the healthcare organization to consider:
+        {additional_context}
+        """
+    
+    # Create the prompt for Claude
+    prompt = f"""You are an expert healthcare analytics assistant helping customers make data-driven decisions.
+
+    Based on the selected metrics {', '.join(selected_metrics)} by dimensions {', '.join(selected_dimensions)}, analyze the data patterns and trends.
+    
+    {context_section}
+    
+    First, provide a brief summary of what the data is showing.
+    
+    Then, your output should include: 
+    1. A primary area of focus based on the data patterns
+    2. Three specific initiatives to address the identified focus area
+    3. Two actionable steps for each initiative
     
     Here's the data:
     {data_str}
@@ -219,18 +237,14 @@ def generate_insights(data, selected_metrics, selected_dimensions, additional_co
     What patterns or trends do you observe and what strategies would you recommend?
     """
     
-    # Format the additional context if provided
-    context_info = ""
-    if additional_context and additional_context.strip():
-        context_info = f"""
-        Additional context about the healthcare organization to consider:
-        {additional_context}
-        """
-    
-    # Use the chain
+    # Use Claude directly instead of the QA chain
     try:
-        response = qa_chain({"query": question, "context_info": context_info})
-        return response["result"]
+        messages = [
+            SystemMessage(content="You are an expert healthcare analytics assistant."),
+            HumanMessage(content=prompt)
+        ]
+        response = llm(messages)
+        return response.content
     except Exception as e:
         st.error(f"Error generating insights: {str(e)}")
         return "Unable to generate insights. Please try again with different selections."
