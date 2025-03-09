@@ -280,6 +280,14 @@ selected_dimensions = st.sidebar.multiselect(
     default=default_dimensions
 )
 
+# Additional context input in the sidebar
+st.sidebar.header("Additional Context")
+additional_context = st.sidebar.text_area(
+    "Add information about your hospital system, insurance company, or specific programs to tailor recommendations:",
+    height=150,
+    key="context_input"
+)
+
 # Button to apply selections
 apply_button = st.sidebar.button("Apply Selections")
 
@@ -308,21 +316,9 @@ if selected_metrics and apply_button:
     # Generate insights
     st.header("Automated Playbook")
     
-    # Additional context input for customizing the prompt
-    st.subheader("Additional Context (Optional)")
-    additional_context = st.text_area(
-        "Add information about your hospital system, insurance company, or specific programs to better tailor recommendations:",
-        height=100,
-        key="context_input"
-    )
-    
-    # Add a button to generate insights with the additional context
-    generate_button = st.button("Generate Tailored Playbook")
-    
-    if generate_button:
-        with st.spinner("Generating insights..."):
-            insights = generate_insights(aggregated_data, selected_metrics, selected_dimensions, additional_context)
-        st.write(insights)
+    with st.spinner("Generating insights..."):
+        insights = generate_insights(aggregated_data, selected_metrics, selected_dimensions, additional_context)
+    st.write(insights)
 elif not apply_button:
     st.info("Select metrics and conditions, then click 'Apply Selections'.")
 else:
