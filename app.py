@@ -260,12 +260,21 @@ selected_metrics = st.sidebar.multiselect(
     default=default_metrics
 )
 
-# Select dimensions (default to chronic conditions)
-default_dimensions = ['Diabetes', 'EmployerGroup']
+# Select dimensions (default to employer group)
+default_dimensions = ['EmployerGroup']
 selected_dimensions = st.sidebar.multiselect(
     "Select Dimensions",
     available_dimensions,
     default=default_dimensions
+)
+
+# Select chronic conditions to analyze (as metrics, not dimensions)
+st.sidebar.subheader("Select Chronic Conditions")
+chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
+selected_conditions = st.sidebar.multiselect(
+    "Analyze Counts for These Conditions",
+    chronic_conditions,
+    default=['Diabetes']
 )
 
 # Button to apply selections
@@ -277,13 +286,28 @@ if st.checkbox("Show Raw Data Sample", value=False):
     st.write(data.head(10))
 
 # Process data based on selections
-if selected_metrics and selected_dimensions and apply_button:
+if selected_metrics and apply_button:
     # Special handling for date dimension
     if 'IncurrDate' in selected_dimensions:
         # Group by month for better visualization
         data['Month'] = data['IncurrDate'].dt.to_period('M')
         selected_dimensions[selected_dimensions.index('IncurrDate')] = 'Month'
-        
+    
+    # Convert chronic condition flags to count columns if they're selected as dimensions
+    chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
+    for condition in chronic_conditions:
+        if condition in selected_dimensions:
+            # Create a count column for this condition and use it instead of the boolean flag
+            count_col = f'{condition}Count'
+            data[count_col] = data[condition].astype(int)
+            selected_dimensions[selected_dimensions.index(condition)] = count_col
+    
+    # Add chronic condition counts as metrics
+    for condition in selected_conditions:
+        data[f'{condition}Count'] = data[condition].astype(int)
+        if f'{condition}Count' not in selected_metrics:
+            selected_metrics.append(f'{condition}Count')
+    
     # Aggregate the data
     aggregated_data = aggregate_data(data, selected_dimensions, selected_metrics)
     
@@ -291,19 +315,14 @@ if selected_metrics and selected_dimensions and apply_button:
     st.header("Metrics by Dimensions")
     st.write(aggregated_data)
     
-    # Display chronic condition counts if not already in dimensions
-    chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
-    condition_counts = []
-    for condition in chronic_conditions:
-        condition_count_col = f'{condition}Count'
-        if condition_count_col in aggregated_data.columns:
-            total_with_condition = aggregated_data[condition_count_col].sum()
-            condition_counts.append(f"Total patients with {condition}: {total_with_condition}")
-    
-    if condition_counts:
+    # Display total patients by condition
+    if selected_conditions:
         st.subheader("Chronic Condition Summary")
-        for count_text in condition_counts:
-            st.write(count_text)
+        total_patients = data['PatientID'].nunique()
+        for condition in selected_conditions:
+            patients_with_condition = data[condition].sum()
+            percentage = (patients_with_condition / total_patients) * 100
+            st.write(f"Total patients with {condition}: {patients_with_condition} ({percentage:.1f}%)")
     
     # Generate insights
     st.header("Automated Playbook")
@@ -311,9 +330,9 @@ if selected_metrics and selected_dimensions and apply_button:
         insights = generate_insights(aggregated_data, selected_metrics, selected_dimensions)
     st.write(insights)
 elif not apply_button:
-    st.info("Select metrics and dimensions, then click 'Apply Selections'.")
+    st.info("Select metrics and conditions, then click 'Apply Selections'.")
 else:
-    st.warning("Please select at least one metric and one dimension.")
+    st.warning("Please select at least one metric.")
 
 # Custom question section
 st.header("Ask a Custom Question")
