@@ -95,19 +95,19 @@ Question: {question}
 Answer:
 """
 
-# Create the RetrievalQA chain with the custom prompt
+# Create the prompt with the template
+PROMPT = PromptTemplate(
+    template=prompt_template,
+    input_variables=["context", "question", "additional_context_text"]
+)
+
+# Initialize the QA chain with the custom prompt
 def create_qa_chain(retriever, llm):
-    # This is a simpler approach than using a complex template with conditionals
     return RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
         retriever=retriever,
-        chain_type_kwargs={
-            "prompt": PromptTemplate(
-                template=prompt_template,
-                input_variables=["context", "question", "additional_context_text"]
-            )
-        }
+        chain_type_kwargs={"prompt": PROMPT}
     )
 
 # Create the RetrievalQA chain with the custom prompt
