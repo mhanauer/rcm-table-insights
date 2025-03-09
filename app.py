@@ -173,17 +173,35 @@ def aggregate_data(data, dimensions, metrics):
         # Include count of patients
         agg_dict['PatientID'] = 'count'
         
+        # Add sums for chronic conditions if they're not already in dimensions
+        chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
+        for condition in chronic_conditions:
+            if condition in data.columns and condition not in dimensions:
+                agg_dict[condition] = 'sum'
+        
         # Aggregate the data
         result = grouped.agg(agg_dict).reset_index()
         
         # Rename the count column
         result = result.rename(columns={'PatientID': 'PatientCount'})
         
+        # For boolean chronic conditions in results, convert to patient counts
+        for col in result.columns:
+            if col in chronic_conditions and col not in dimensions:
+                result = result.rename(columns={col: f'{col}Count'})
+        
         return result
     else:
         # If no dimensions selected, just sum up the metrics
         result = pd.DataFrame({metric: [data[metric].sum()] for metric in metrics})
         result['PatientCount'] = len(data)
+        
+        # Add sums for chronic conditions
+        chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
+        for condition in chronic_conditions:
+            if condition in data.columns:
+                result[f'{condition}Count'] = data[condition].sum()
+        
         return result
 
 # Function to generate insights based on table data
@@ -272,6 +290,20 @@ if selected_metrics and selected_dimensions and apply_button:
     # Display the aggregated data
     st.header("Metrics by Dimensions")
     st.write(aggregated_data)
+    
+    # Display chronic condition counts if not already in dimensions
+    chronic_conditions = ['Diabetes', 'COPD', 'Hypertension']
+    condition_counts = []
+    for condition in chronic_conditions:
+        condition_count_col = f'{condition}Count'
+        if condition_count_col in aggregated_data.columns:
+            total_with_condition = aggregated_data[condition_count_col].sum()
+            condition_counts.append(f"Total patients with {condition}: {total_with_condition}")
+    
+    if condition_counts:
+        st.subheader("Chronic Condition Summary")
+        for count_text in condition_counts:
+            st.write(count_text)
     
     # Generate insights
     st.header("Automated Playbook")
