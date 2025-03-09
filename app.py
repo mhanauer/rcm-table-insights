@@ -72,11 +72,12 @@ docsearch = FAISS.from_texts(texts, embeddings)
 # Create a retriever
 retriever = docsearch.as_retriever()
 
-# Define the custom prompt template
+# Define the custom prompt template that includes additional context
 prompt_template = """
 You are an expert healthcare analytics assistant helping customers make data-driven decisions.
 
 Based on the selected metrics and dimensions in the table, analyze the data patterns and trends.
+{additional_context}
 
 First, provide a brief summary of what the data is showing.
 
@@ -84,8 +85,6 @@ Then, your output should include:
 1. A primary area of focus based on the data patterns
 2. Three specific initiatives to address the identified focus area
 3. Two actionable steps for each initiative
-
-{additional_context_text}
 
 Use the following context to inform your answer:
 {context}
@@ -98,7 +97,7 @@ Answer:
 # Create the prompt with the template
 PROMPT = PromptTemplate(
     template=prompt_template,
-    input_variables=["context", "question", "additional_context_text"]
+    input_variables=["context", "question", "additional_context"]
 )
 
 # Initialize the QA chain with the custom prompt
@@ -219,21 +218,21 @@ def generate_insights(data, selected_metrics, selected_dimensions, additional_co
     What patterns or trends do you observe and what strategies would you recommend?
     """
     
-    # Prepare additional context text for the prompt
+    # Format the additional context if provided
+    additional_context_formatted = ""
     if additional_context and additional_context.strip():
-        additional_context_text = f"""
+        additional_context_formatted = f"""
         Use the following additional context about the healthcare organization to tailor your recommendations:
         {additional_context}
         """
-    else:
-        additional_context_text = ""
     
-    # Get insights using the QA chain
-    response = qa_chain.run(
-        question=question,
-        additional_context_text=additional_context_text
-    )
-    return response
+    # Use the chain
+    try:
+        response = qa_chain({"query": question, "additional_context": additional_context_formatted})
+        return response["result"]
+    except Exception as e:
+        st.error(f"Error generating insights: {str(e)}")
+        return "Unable to generate insights. Please try again with different selections."
 
 # Streamlit application
 st.title("Healthcare Analytics Dashboard")
